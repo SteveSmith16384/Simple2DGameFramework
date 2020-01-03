@@ -26,13 +26,14 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 import javax.swing.JOptionPane;
 
-import com.sun.scenario.Settings;
+import com.scs.simple2dgameframework.graphics.Sprite;
+import com.scs.simple2dgameframework.input.ControllerManager;
 
 import net.java.games.input.Controller;
 
 public abstract class Simple2DGameFramework extends Thread implements MouseListener, KeyListener, MouseMotionListener, WindowListener, MouseWheelListener, Runnable {
 	
-	private static final String GFX_FOLDER = "assets/";
+	public static final String ASSETS_FOLDER = "assets/";
 
 	private int logicalWidth, logicalHeight;
 	private int physicalWidth, physicalHeight;
@@ -178,7 +179,7 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 
 	public Sprite createSprite(String filename) {
 		try {
-			BufferedImage img = ImageIO.read(new File(GFX_FOLDER + filename));
+			BufferedImage img = ImageIO.read(new File(ASSETS_FOLDER + filename));
 			return new Sprite(this, img);
 		} catch (IOException ex) {
 			handleException(ex);
@@ -187,9 +188,14 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 	}
 
 
+	public Sprite createSprite(BufferedImage bi) {
+		return new Sprite(this, bi);
+	}
+
+
 	public Sprite createSprite(String filename, int w, int h) { // todo - combine create and setsize
 		try {
-			BufferedImage img = ImageIO.read(new File(GFX_FOLDER + filename));
+			BufferedImage img = ImageIO.read(new File(ASSETS_FOLDER + filename));
 
 			BufferedImage scaled = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
 			scaled.getGraphics().drawImage(img, 0, 0, w, h, frame);
