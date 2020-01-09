@@ -1,6 +1,7 @@
 package com.scs.simple2dgameframework;
 
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsEnvironment;
@@ -21,58 +22,52 @@ import java.awt.event.WindowListener;
 import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 
 import javax.imageio.ImageIO;
 import javax.swing.JOptionPane;
 
+import com.scs.simple2dgameframework.audio.AudioPlayer;
+import com.scs.simple2dgameframework.audio.AudioSystem;
+import com.scs.simple2dgameframework.graphics.GraphicsUtils;
 import com.scs.simple2dgameframework.graphics.Sprite;
 import com.scs.simple2dgameframework.input.ControllerManager;
 
 import net.java.games.input.Controller;
 
 public abstract class Simple2DGameFramework extends Thread implements MouseListener, KeyListener, MouseMotionListener, WindowListener, MouseWheelListener, Runnable {
-	
+
 	public static final String ASSETS_FOLDER = "assets/";
 
 	private int logicalWidth, logicalHeight;
 	private int physicalWidth, physicalHeight;
 	private Color backgroundColor = new Color(255, 255, 255);
 	private boolean[] keys = new boolean[255];
-	public float diff_secs;
-
-	// Graphics Stuff
+	public float delta_seconds;
 	private boolean isRunning = true;
 	private BufferStrategy strategy;
 	private Graphics2D backgroundGraphics;
 	private Graphics2D graphics;
 	public GameWindow frame;
 	private ControllerManager controllerManager;
+	private AudioSystem audioSystem;
+	private Font defaultFont;
+	public  GraphicsUtils graphicsUtils;
 	
-	public GraphicsConfiguration config = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+	private GraphicsConfiguration config = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
 
 	public Simple2DGameFramework(int _logicalWidth, int _logicalHeight) {
-		super();
-		
+		super(Simple2DGameFramework.class.getSimpleName());
+
 		logicalWidth = _logicalWidth;
 		logicalHeight = _logicalHeight;
-		
+
 		System.setProperty("net.java.games.input.librarypath", new File("libs/jinput").getAbsolutePath());
-	}
-	
-	
-	private void createWindow() {
-		frame = new GameWindow(this, this.physicalWidth, this.physicalHeight);
 
-		do {
-			strategy = frame.getBufferStrategy();
-		} while (strategy == null);
-
-		controllerManager = new ControllerManager();
-		this.start();
+		this.graphicsUtils = new GraphicsUtils();
+		audioSystem = new AudioSystem();
 	}
 
-	
+
 	public void setFullScreen() {
 		this.physicalWidth = config.getBounds().width;
 		this.physicalHeight = config.getBounds().height;
@@ -87,8 +82,20 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 	}
 
 
-	// Screen Stuff ------------------------------------------------------------
-	private Graphics2D getBuffer() {
+	private void createWindow() {
+		frame = new GameWindow(this, this.physicalWidth, this.physicalHeight, config);
+		frame.requestFocus();
+		frame.requestFocusInWindow();
+		do {
+			strategy = frame.getBufferStrategy();
+		} while (strategy == null);
+
+		controllerManager = new ControllerManager();
+		this.start();
+	}
+
+
+	private Graphics2D getGraphics() {
 		if (graphics == null) {
 			graphics = (Graphics2D) strategy.getDrawGraphics();
 		}
@@ -111,15 +118,14 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 
 		init();
 
-		//long fpsWait = (long) (1.0 / 30 * 1000);
 		main: while (isRunning) {
 			long start = System.currentTimeMillis();
 
 			this.controllerManager.checkForControllers();
-			
+
 			// Update Graphics
 			do {
-				Graphics2D bg = getBuffer();
+				Graphics2D bg = getGraphics();
 				if (!isRunning) {
 					break main;
 				}
@@ -133,7 +139,7 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			diff_secs = (System.currentTimeMillis() - start)/1000f;
+			delta_seconds = (System.currentTimeMillis() - start)/1000f;
 
 		}
 		frame.dispose();
@@ -143,6 +149,11 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 	public void renderGame(Graphics2D g) {
 		g.setColor(this.backgroundColor);
 		g.fillRect(0, 0, logicalWidth, logicalHeight);
+
+		if (defaultFont != null) {
+			g.setFont(defaultFont);
+		}
+
 		draw();
 	}
 
@@ -162,29 +173,24 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 		}
 		return null;
 	}
-	
-	
+
+
 	protected Controller getRemovedController() {
 		if (this.controllerManager.controllersRemoved.size() > 0) {
 			return this.controllerManager.controllersRemoved.remove(0);
 		}
 		return null;
 	}
-	
-	
+
+
 	protected void setBackgroundColour(int r, int g, int b) {
 		backgroundColor = new Color(r, g, b);
 	}
 
 
 	public Sprite createSprite(String filename) {
-		try {
-			BufferedImage img = ImageIO.read(new File(ASSETS_FOLDER + filename));
-			return new Sprite(this, img);
-		} catch (IOException ex) {
-			handleException(ex);
-			return null;
-		}
+		BufferedImage img = graphicsUtils.loadImage(filename);
+		return new Sprite(this, img);
 	}
 
 
@@ -193,18 +199,10 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 	}
 
 
-	public Sprite createSprite(String filename, int w, int h) { // todo - combine create and setsize
-		try {
-			BufferedImage img = ImageIO.read(new File(ASSETS_FOLDER + filename));
-
-			BufferedImage scaled = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-			scaled.getGraphics().drawImage(img, 0, 0, w, h, frame);
-
-			return new Sprite(this, scaled);
-		} catch (IOException ex) {
-			handleException(ex);
-			return null;
-		}
+	public Sprite createSprite(String filename, int w, int h) {
+		Sprite s = this.createSprite(filename);
+		s.setSize(w, h);
+		return s;
 	}
 
 
@@ -223,7 +221,7 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 	}
 
 
-	public void drawFont(String text, float x, float y) { // todo - rename
+	public void drawFont(String text, float x, float y) {
 		backgroundGraphics.drawString(text, x, y);
 	}
 
@@ -239,7 +237,7 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 
 
 	public void playMusic(String s) {
-		// todo
+		audioSystem.playMusic(ASSETS_FOLDER + s);
 	}
 
 
@@ -248,22 +246,16 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 		if (ke.getKeyCode() == KeyEvent.VK_F1) {
 			// Take screenshot
 			try {
-				Rectangle r = null;
-				/*if (fullScreen) {
-					r = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
-				} else {*/
 				Insets insets = frame.getInsets();
-				r = new Rectangle(frame.getX() + insets.left, frame.getY() + insets.top, frame.getWidth() - insets.left-insets.right, frame.getHeight() - insets.top-insets.bottom);
-				//}
+				Rectangle r = new Rectangle(frame.getX() + insets.left, frame.getY() + insets.top, frame.getWidth() - insets.left-insets.right, frame.getHeight() - insets.top-insets.bottom);
 				BufferedImage image = new Robot().createScreenCapture(r);
-				String filename = "StellarForces_Screenshot_" + System.currentTimeMillis() + ".png";
+				String filename = "Screenshot_" + System.currentTimeMillis() + ".png";
 				ImageIO.write(image, "png", new File(filename));
 				p("Screenshot saved as " + filename);
 			} catch (Exception ex) {
 				ex.printStackTrace();
 				JOptionPane.showMessageDialog(frame, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
 			}
-			return;
 		}
 
 		keys[ke.getKeyCode()] = true;
@@ -375,7 +367,7 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 		p(ex.getMessage());
 		ex.printStackTrace();
 		isRunning = false;
-		frame.setVisible(false);
+		//frame.setVisible(false);
 		//System.exit(-1);
 	}
 
@@ -383,4 +375,15 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 	public static void p(String s) {
 		System.out.println(s);
 	}
+
+
+	protected void setDefaultFont(Font _font) {
+		defaultFont = _font;
+	}
+
+
+	public void playSound(String filename) {
+		new AudioPlayer("assets/sfx/" + filename, false).start();
+	}
+
 }
