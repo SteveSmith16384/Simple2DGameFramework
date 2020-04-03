@@ -155,6 +155,15 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 		}
 
 		draw();
+		
+		if (this.keys[KeyEvent.VK_TAB]) {
+			// Show controller info
+			int idx = 0;
+			for (Controller controller : this.controllerManager.controllers) {
+				g.drawString(controller.getName(), 20, 100 + (idx*20));
+				idx++;
+			}
+		}
 	}
 
 
@@ -216,7 +225,7 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 
 	public void drawSprite(Sprite s) {
 		if (s.img != null) {
-			this.backgroundGraphics.drawImage(s.img, (int)s.pos.x, (int)s.pos.y, null);
+			this.backgroundGraphics.drawImage(s.img, (int)s.pos.x, (int)s.pos.y, this.frame);
 		}
 	}
 
@@ -258,13 +267,17 @@ public abstract class Simple2DGameFramework extends Thread implements MouseListe
 			}
 		}
 
-		keys[ke.getKeyCode()] = true;
+		if (ke.getKeyCode() < keys.length) {
+			keys[ke.getKeyCode()] = true;
+		}
 	}
 
 
 	@Override
 	public void keyReleased(KeyEvent ke) {
-		keys[ke.getKeyCode()] = false;
+		if (ke.getKeyCode() < keys.length) {
+			keys[ke.getKeyCode()] = false;
+		}
 	}
 
 
